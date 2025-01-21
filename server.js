@@ -17,7 +17,13 @@ const axiosClient = axios.create({
   },
 });
 
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5137", "https://visual-ict.onrender.com"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
