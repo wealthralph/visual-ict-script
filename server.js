@@ -10,6 +10,10 @@ dotenv.config();
 const app = express();
 const router = express.Router();
 
+app.use(
+  cors()
+);
+
 const axiosClient = axios.create({
   baseURL: "https://core-api.tagpay.ng/v1",
   headers: {
@@ -17,13 +21,7 @@ const axiosClient = axios.create({
   },
 });
 
-app.use(
-  cors({
-    origin: ["http://localhost:5137", "https://visual-ict.onrender.com"],
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
@@ -58,6 +56,9 @@ router.get(
 
       const changePin = await axiosClient.post("/fip/card/pin", payload);
 
+      console.log(changePin.status, "@change pin")
+      console.log(changePin.data, "@change pin")
+
       if (changePin.status !== 200 || changePin.data.status !== true) {
         res.status(500).json({
           success: false,
@@ -84,6 +85,15 @@ router.get(
     }
   })
 );
+
+// app.get("/", async((req, res) => {
+
+//     res.status(200).json({
+//         success: true,
+//         message: "health check"
+//     })
+
+// }))
 
 app.use(router);
 
