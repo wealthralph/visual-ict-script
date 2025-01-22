@@ -27,6 +27,7 @@ router.post(
       const newToken = new Token({ token });
       await newToken.save();
 
+
       res.status(201).json({
         success: true,
         message: "Token saved successfully",
@@ -54,7 +55,7 @@ router.post(
 
     try {
       if (Number(token) === adminPin) {
-        res.status(200).json({
+      return  res.status(200).json({
           success: true,
           message: "Admin verified succesfully",
         });
@@ -83,14 +84,10 @@ router.post(
 
     const tokenDoc = await Token.findOne();
     if (!tokenDoc) {
-      // return res.status(500).json({
-      //   success: false,
-      //   message: "Failed to retrieve token",
-      // });
       token = process.env.API_KEY;
+    } else {
+      token = tokenDoc.token;
     }
-
-    token = tokenDoc.token;
 
     const axiosClient = axios.create({
       baseURL: "https://core-api.tagpay.ng/v1",
@@ -100,55 +97,45 @@ router.post(
     });
 
     try {
-      const getAccoutnNumber = await axiosClient.get(
+      const getAccountNumber = await axiosClient.get(
         `/fip/card/${data.accountNumber}`
       );
 
-      const cardId = getAccoutnNumber.data.data.id;
-
-      console.log("@CARD-ID", cardId);
-
-      if (getAccoutnNumber.data.status !== true) {
-        res.status(500).json({
+      if (getAccountNumber.data.status !== true) {
+        return res.status(500).json({
           success: false,
-          message: "Failed to retrieve account number ",
+          message: "Failed to retrieve account number",
         });
-
-        throw new Error("Failed to retrieve account number");
       }
 
-      const payload = {
-        pin: data.cardPin,
-        cardId,
-      };
+      const cardId = getAccountNumber.data.data.id;
+      const payload = { pin: data.cardPin, cardId };
 
       const changePin = await axiosClient.patch("/fip/card/pin", payload);
 
       if (changePin.data.status !== true) {
-        res.status(500).json({
+        return res.status(500).json({
           success: false,
-          message: "Failed to retrieve account number ",
+          message: "Failed to change pin",
         });
-
-        throw new Error("Failed to retrieve account number");
       }
 
-      res.status(200).json({
-        success: false,
-        message: "Pin Change Succesful",
+      return res.status(200).json({
+        success: true,
+        message: "Pin Change Successful",
       });
-
-      console.log(response.data, "this is the respons data");
     } catch (error) {
-      console.log("@ERORR", error?.response.data);
+      console.error("@ERROR", error?.response?.data);
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Failed to change pin",
       });
     }
   })
 );
+
+
 
 app.use(router);
 
