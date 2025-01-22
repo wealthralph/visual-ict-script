@@ -21,14 +21,15 @@ const axiosClient = axios.create({
   },
 });
 
-
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-router.get(
+router.post(
   "/activate",
   asynchandler(async (req, res) => {
     const data = req.body;
+
+
 
     try {
       const getAccoutnNumber = await axiosClient.get(
@@ -37,8 +38,10 @@ router.get(
 
       const cardId = getAccoutnNumber.data.data.id;
 
+      console.log("@CARD-ID", cardId)
+
+
       if (
-        getAccoutnNumber.status !== 200 ||
         getAccoutnNumber.data.status !== true
       ) {
         res.status(500).json({
@@ -54,12 +57,12 @@ router.get(
         cardId,
       };
 
-      const changePin = await axiosClient.post("/fip/card/pin", payload);
+      
+      const changePin = await axiosClient.patch("/fip/card/pin", payload);
+      
+   
 
-      console.log(changePin.status, "@change pin")
-      console.log(changePin.data, "@change pin")
-
-      if (changePin.status !== 200 || changePin.data.status !== true) {
+      if ( changePin.data.status !== true) {
         res.status(500).json({
           success: false,
           message: "Failed to retrieve account number ",
@@ -74,26 +77,16 @@ router.get(
       });
 
       console.log(response.data, "this is the respons data");
-
-
     } catch (error) {
+            console.log("@ERORR", error?.response.data);
+
       res.status(500).json({
         success: false,
         message: "Failed to change pin",
       });
-      console.log(error)
     }
   })
 );
-
-// app.get("/", async((req, res) => {
-
-//     res.status(200).json({
-//         success: true,
-//         message: "health check"
-//     })
-
-// }))
 
 app.use(router);
 
