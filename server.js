@@ -31,7 +31,6 @@ router.post(
       res.status(201).json({
         success: true,
         message: "Token saved successfully",
-        data: newToken,
       });
     } catch (error) {
       res.status(500).json({
@@ -49,7 +48,6 @@ router.post(
     const { token } = req.body;
 
 
-    console.log("something is runnnnnnnnnnnnnnnnn")
 
     const adminPin = 4035;
 
