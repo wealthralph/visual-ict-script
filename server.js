@@ -102,6 +102,8 @@ router.post(
       );
 
 
+      console.log(getAccountNumber, "getAccountNumber");
+
       if (getAccountNumber.data.status !== true) {
         return res.status(500).json({
           success: false,
@@ -114,6 +116,8 @@ router.post(
 
 
       const changePin = await axiosClient.patch("/fip/card/pin", payload);
+
+      console.log(changePin, "changePin");
 
       if (changePin.data.status !== true) {
         return res.status(500).json({
