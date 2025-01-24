@@ -28,11 +28,12 @@ router.post(
       await newToken.save();
 
 
-      res.status(201).json({
+      res.status(200).json({
         success: true,
         message: "Token saved successfully",
       });
     } catch (error) {
+      console.log(error)
       res.status(500).json({
         success: false,
         message: "Failed to save token",
@@ -94,10 +95,12 @@ router.post(
       },
     });
 
+
     try {
       const getAccountNumber = await axiosClient.get(
         `/fip/card/${data.accountNumber}`
       );
+
 
       if (getAccountNumber.data.status !== true) {
         return res.status(500).json({
@@ -107,7 +110,8 @@ router.post(
       }
 
       const cardId = getAccountNumber.data.data.id;
-      const payload = { pin: data.cardPin, cardId };
+      const payload = { pin: data.pin, cardId };
+
 
       const changePin = await axiosClient.patch("/fip/card/pin", payload);
 
@@ -128,6 +132,7 @@ router.post(
       return res.status(500).json({
         success: false,
         message: "Failed to change pin",
+        error: error
       });
     }
   })
