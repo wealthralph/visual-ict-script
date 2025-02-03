@@ -6,6 +6,15 @@ import axios from "axios";
 import asynchandler from "express-async-handler";
 import connectDB from "./db.js";
 import Token from "./token.schema.js";
+import upload from "./multer.js";
+import fs from "fs";
+import csv from "csv-parser";
+import {
+  activateInterSwitchBulk,
+  activateInterSwitchCard,
+  activateProvidusBulk,
+  activateProvidusCard,
+} from "./helper.js";
 
 dotenv.config();
 connectDB();
@@ -27,13 +36,12 @@ router.post(
       const newToken = new Token({ token });
       await newToken.save();
 
-
       res.status(200).json({
         success: true,
         message: "Token saved successfully",
       });
     } catch (error) {
-      console.log(error)
+      console.log(error);
       res.status(500).json({
         success: false,
         message: "Failed to save token",
@@ -48,23 +56,20 @@ router.post(
   asynchandler(async (req, res) => {
     const { token } = req.body;
 
-
-
     const adminPin = 4035;
 
     try {
       if (Number(token) === adminPin) {
-      return  res.status(200).json({
+        return res.status(200).json({
           success: true,
           message: "Admin verified succesfully",
         });
       }
 
-       res.status(500).json({
-         success: false,
-         message: "Authorization failed",
-       });
-
+      res.status(500).json({
+        success: false,
+        message: "Authorization failed",
+      });
     } catch (error) {
       res.status(500).json({
         success: false,
@@ -95,35 +100,15 @@ router.post(
       },
     });
 
+    const { mode } = req.query;
+
+    console.log(JSON.stringify(mode), "this si the mode");
 
     try {
-      const getAccountNumber = await axiosClient.get(
-        `/fip/card/${data.accountNumber}`
-      );
-
-
-      console.log(getAccountNumber, "getAccountNumber");
-
-      if (getAccountNumber.data.status !== true) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to retrieve account number",
-        });
-      }
-
-      const cardId = getAccountNumber.data.data.id;
-      const payload = { pin: data.pin, cardId };
-
-
-      const changePin = await axiosClient.patch("/fip/card/pin", payload);
-
-      console.log(changePin, "changePin");
-
-      if (changePin.data.status !== true) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to change pin",
-        });
+      if (mode === "Providus") {
+        await activateProvidusCard(axiosClient, data, res);
+      } else if (mode === "Interswitch") {
+        await activateInterSwitchCard(axiosClient, data, res);
       }
 
       return res.status(200).json({
@@ -131,18 +116,78 @@ router.post(
         message: "Pin Change Successful",
       });
     } catch (error) {
-      console.error("@ERROR", error?.response?.data);
+      console.error("@ERROR", error);
 
       return res.status(500).json({
         success: false,
         message: "Failed to change pin",
-        error: error
+        error: error,
       });
     }
   })
 );
 
+router.post(
+  "/activate-bulk",
+  upload.single("file"),
+  asynchandler(async (req, res, next) => {
+    console.log("📌 Route reached: /activate-bulk");
 
+    const { mode } = req.query;
+
+    if (!req.file) {
+      console.log("❌ No file uploaded!");
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
+    }
+
+    let token;
+
+    const tokenDoc = await Token.findOne();
+    if (!tokenDoc) {
+      token = process.env.API_KEY;
+    } else {
+      token = tokenDoc.token;
+    }
+
+    const axiosClient = axios.create({
+      baseURL: "https://core-api.tagpay.ng/v1",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const filePath = req.file.path;
+    console.log(`✅ File uploaded: ${filePath}`);
+
+    const results = [];
+
+    fs.createReadStream(filePath, { encoding: "utf8" })
+      .pipe(csv())
+      .on("data", (row) => {
+        console.log(`📄 Row:`, row);
+        results.push({ ...row, status: "pending" });
+      })
+      .on("end", async () => {
+        console.log(`✅ CSV Processing complete! ${results.length} rows.`);
+        fs.unlinkSync(filePath);
+
+        if (mode === "Providus") {
+          await activateProvidusBulk(axiosClient, results, res);
+        } else if (mode === "Interswitch") {
+          await activateInterSwitchBulk(axiosClient, results, res);
+        }
+      })
+
+      .on("error", (err) => {
+        console.error("❌ CSV Processing Error:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Error processing CSV" });
+      });
+  })
+);
 
 app.use(router);
 
