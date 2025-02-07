@@ -14,6 +14,7 @@ import {
   activateInterSwitchCard,
   activateProvidusBulk,
   activateProvidusCard,
+  processInBatches,
 } from "./helper.js";
 
 dotenv.config();
@@ -133,7 +134,10 @@ router.post(
   asynchandler(async (req, res, next) => {
     console.log("📌 Route reached: /activate-bulk");
 
-    const { mode } = req.query;
+    const { mode, batchSize, batching } = req.query;
+    const batchLimit = batchSize ? parseInt(batchSize) : 50;
+
+    console.log(req.query, "before God whom i stand")
 
     if (!req.file) {
       console.log("❌ No file uploaded!");
@@ -158,10 +162,14 @@ router.post(
       },
     });
 
+    console.log(token, "this is the token")
+
     const filePath = req.file.path;
     console.log(`✅ File uploaded: ${filePath}`);
 
     const results = [];
+    const processedResults = [];
+    const failedRecords = [];
 
     fs.createReadStream(filePath, { encoding: "utf8" })
       .pipe(csv())
@@ -173,11 +181,55 @@ router.post(
         console.log(`✅ CSV Processing complete! ${results.length} rows.`);
         fs.unlinkSync(filePath);
 
-        if (mode === "Providus") {
-          await activateProvidusBulk(axiosClient, results, res);
-        } else if (mode === "Interswitch") {
-          await activateInterSwitchBulk(axiosClient, results, res);
+        if (batching) {
+          
+            const { batchResults, totalBatches } = await processInBatches(
+              results,
+              batchLimit,
+              axiosClient,
+              mode,
+              res
+            );
+
+            console.log("this is running in the batch")
+
+           return res.json({
+              success: true,
+              message: "CSV processed successfully",
+              batchResults,
+              totalBatches,
+            });
+
         }
+
+        console.log(
+          `📦 Processing batch ${currentBatch}/${totalBatches} (${batch.length} records)...`
+        );
+
+        if (mode === "Providus") {
+          await activateProvidusBulk(
+            axiosClient,
+            results,
+            res,
+            processedResults,
+            failedRecords
+          );
+        } else if (mode === "Interswitch") {
+          await activateInterSwitchBulk(
+            axiosClient,
+            results,
+            res,
+            processedResults,
+            failedRecords
+          );
+        }
+
+        return res.json({
+          success: true,
+          message: "CSV processed successfully",
+          processedRecords: processedResults,
+          failedRecords: failedRecords,
+        });
       })
 
       .on("error", (err) => {
